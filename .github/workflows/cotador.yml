@@ -1,0 +1,42 @@
+name: Gerador de Cotacao On-Demand
+
+on:
+  workflow_dispatch:
+    inputs:
+      itens:
+        description: 'Lista de itens separados por vírgula'
+        required: true
+        default: 'iPhone 17 Pro Max 256GB'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Instalar dependências do Sistema (WeasyPrint)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libpango-1.0-0 libharfbuzz0b libpangoft2-1.0-0
+
+      - name: Instalar dependências do Python
+        run: pip install requests weasyprint numpy
+
+      - name: Executar Scraper e Gerar PDF
+        env:
+          SERPER_API_KEY: ${{ secrets.SERPER_API_KEY }}
+          LISTA_ITENS: ${{ github.event.inputs.itens }}
+        run: python script_cotacao.py
+
+      - name: Upload do Relatório PDF
+        uses: actions/upload-artifact@v4
+        with:
+          name: relatorio-cotacao-mercado
+          path: relatorio_final.pdf
+          retention-days: 5
