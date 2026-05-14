@@ -1,0 +1,46 @@
+<div id="app">
+    <h3>Painel de Cotação Automatizada</h3>
+    <textarea id="itens" placeholder="Ex: iPhone 17, Projetor BenQ, MacBook M3"></textarea>
+    <button id="btnGerar" onclick="dispararFluxo()">Gerar Relatório PDF</button>
+
+    <div id="statusContainer" style="display:none;">
+        <div class="spinner"></div> <p id="statusTexto">Enviando solicitação ao GitHub Actions...</p>
+    </div>
+
+    <div id="resultado" style="display:none;">
+        <p>✅ Relatório Gerado com Sucesso!</p>
+        <a id="linkDownload" href="#" target="_blank">Baixar Relatório PDF</a>
+    </div>
+</div>
+
+<script>
+async function dispararFluxo() {
+    const itens = document.getElementById('itens').value;
+    const btn = document.getElementById('btnGerar');
+    const status = document.getElementById('statusContainer');
+    
+    btn.disabled = true;
+    status.style.display = 'block';
+
+    // 1. Dispara a Action
+    const response = await fetch('https://api.github.com/repos/SEU_USUARIO/SEU_REPOSITORIO/actions/workflows/cotador_automatico.yml/dispatches', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'token GITHUB_PAT_AQUI',
+            'Accept': 'application/vnd.github.v3+json'
+        },
+        body: JSON.stringify({ ref: 'main', inputs: { itens: itens } })
+    });
+
+    if (response.ok) {
+        document.getElementById('statusTexto').innerText = "Processando cotação no servidor... Isso pode levar 1-2 minutos.";
+        monitorarExecucao();
+    }
+}
+
+async function monitorarExecucao() {
+    // Aqui você faria um loop (setInterval) chamando a API de "runs" 
+    // do GitHub para checar quando o status for 'completed'.
+    // Assim que completar, você libera o link do artefato para download.
+}
+</script>
