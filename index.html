@@ -2,74 +2,133 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Painel de Cotação</title>
+    <title>Painel de Cotação - IF Baiano</title>
     <style>
         body { font-family: Arial, sans-serif; padding: 40px; background: #f4f7f6; }
-        .container { background: white; padding: 30px; border-radius: 8px; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        textarea { width: 100%; height: 80px; padding: 10px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 4px; }
-        button { background: #2b6cb0; color: white; border: none; padding: 10px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; }
+        .container { background: white; padding: 30px; border-radius: 8px; max-width: 600px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin: auto; }
+        .header-logo { text-align: center; margin-bottom: 20px; color: #1a365d; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #4a5568; font-size: 9pt; }
+        input[type="password"], textarea { width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        textarea { height: 80px; }
+        button { background: #2b6cb0; color: white; border: none; padding: 12px 20px; cursor: pointer; border-radius: 4px; font-weight: bold; width: 100%; font-size: 11pt; transition: background 0.3s; }
+        button:hover { background: #2c5282; }
         button:disabled { background: #a0aec0; cursor: not-allowed; }
-        .status { margin-top: 20px; padding: 15px; border-radius: 4px; display: none; }
+        .status { margin-top: 20px; padding: 15px; border-radius: 4px; display: none; text-align: center; }
         .loading { background: #ebf8ff; color: #2b6cb0; border: 1px solid #90cdf4; }
         .success { background: #f0fff4; color: #2f855a; border: 1px solid #9ae6b4; }
+        .error { background: #fff5f5; color: #c53030; border: 1px solid #feb2b2; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>Sistema de Cotação Automatizada</h2>
-    <p>Insira os itens separados por vírgula:</p>
-    <textarea id="itensInput" placeholder="Ex: iPhone 17 Pro Max 256GB, Projetor BenQ LH730, Drone DJI Mini 4 Pro"></textarea>
+    <div class="header-logo">
+        <h2 style="margin: 0;">Sistema de Cotação Automatizada</h2>
+        <p style="margin: 5px 0 0 0; font-size: 10pt; color: #718096;">DICOM / ASCOM IF Baiano</p>
+    </div>
+    
+    <div class="form-group">
+        <label for="githubToken">Seu Token de Acesso (PAT GitHub):</label>
+        <input type="password" id="githubToken" placeholder="Cole seu token que começa com ghp_...">
+    </div>
+
+    <div class="form-group">
+        <label for="itensInput">Itens para Cotação (separados por vírgula):</label>
+        <textarea id="itensInput" placeholder="Ex: iPhone 17 Pro Max 256GB, Projetor BenQ LH730, Drone DJI Mini 4 Pro"></textarea>
+    </div>
+
     <button id="btnGerar" onclick="iniciarCotacao()">Processar Cotação</button>
 
-    <div id="statusMsg" class="status loading">⏳ Enviando requisição para o servidor...</div>
-    <div id="resultadoMsg" class="status success">
-        ✅ Relatório gerado! Vá até a aba <b>Actions</b> do GitHub para baixar o PDF.
-        <br><br>
-        <a id="linkActions" href="https://github.com/SEU_USUARIO/SEU_REPOSITORIO/actions" target="_blank" style="color: #2f855a; font-weight: bold;">Abrir GitHub Actions</a>
+    <div id="statusMsg" class="status loading">
+        ⏳ Enviando requisição para o servidor...<br>
+        <small>Isso pode levar alguns segundos.</small>
     </div>
+    
+    <div id="resultadoMsg" class="status success">
+        ✅ Requisição aceita com sucesso!<br><br>
+        O relatório está sendo gerado no servidor. Clique no link abaixo para acompanhar e baixar o PDF em instantes:<br><br>
+        <a id="linkActions" href="#" target="_blank" style="color: #2f855a; font-weight: bold; text-decoration: underline;">👉 Abrir Painel do GitHub Actions</a>
+    </div>
+    
+    <div id="errorMsg" class="status error"></div>
 </div>
 
 <script>
-    const GITHUB_USER = 'SEU_USUARIO';
-    const GITHUB_REPO = 'SEU_REPOSITORIO';
-    const GITHUB_PAT = 'SEU_GITHUB_PAT'; 
+    // Configuração já apontada para o seu repositório
+    const GITHUB_USER = 'ascomifbaiano'; 
+    const GITHUB_REPO = 'cotacao'; 
+    const WORKFLOW_FILE = 'cotador.yml'; 
+
+    document.addEventListener('DOMContentLoaded', () => {
+        // Puxa o token salvo no navegador para você não precisar digitar toda hora
+        const savedToken = localStorage.getItem('github_pat_cotacao_ifbaiano');
+        if (savedToken) {
+            document.getElementById('githubToken').value = savedToken;
+        }
+        
+        document.getElementById('linkActions').href = `https://github.com/${GITHUB_USER}/${GITHUB_REPO}/actions`;
+    });
 
     async function iniciarCotacao() {
-        const itens = document.getElementById('itensInput').value;
-        if (!itens) return alert("Digite pelo menos um item!");
+        const token = document.getElementById('githubToken').value.trim();
+        const itens = document.getElementById('itensInput').value.trim();
+        
+        const errorDiv = document.getElementById('errorMsg');
+        const statusDiv = document.getElementById('statusMsg');
+        const successDiv = document.getElementById('resultadoMsg');
+        const btn = document.getElementById('btnGerar');
 
-        document.getElementById('btnGerar').disabled = true;
-        document.getElementById('statusMsg').style.display = 'block';
-        document.getElementById('resultadoMsg').style.display = 'none';
+        if (!token) {
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = '⚠️ Informe o seu Token do GitHub (PAT).';
+            return;
+        }
+        if (!itens) {
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = '⚠️ Digite pelo menos um item para cotação.';
+            return;
+        }
 
-        const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/actions/workflows/cotador.yml/dispatches`;
+        // Salva o token no cache do navegador (só fica na sua máquina)
+        localStorage.setItem('github_pat_cotacao_ifbaiano', token);
+
+        btn.disabled = true;
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+        statusDiv.style.display = 'block';
+
+        const url = `https://api.github.com/repos/${GITHUB_USER}/${GITHUB_REPO}/actions/workflows/${WORKFLOW_FILE}/dispatches`;
 
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `token ${GITHUB_PAT}`,
+                    'Authorization': `Bearer ${token}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                    ref: 'main',
+                    ref: 'main', 
                     inputs: { itens: itens }
                 })
             });
 
             if (response.ok || response.status === 204) {
-                document.getElementById('statusMsg').style.display = 'none';
-                document.getElementById('resultadoMsg').style.display = 'block';
+                statusDiv.style.display = 'none';
+                successDiv.style.display = 'block';
+                document.getElementById('itensInput').value = ''; 
             } else {
-                throw new Error('Falha na requisição');
+                const errData = await response.json().catch(() => ({}));
+                throw new Error(errData.message || `Erro ${response.status}: Verifique se o PAT tem permissão de "workflow".`);
             }
         } catch (error) {
-            alert("Erro ao conectar com o GitHub Actions. Verifique seu PAT e permissões.");
+            statusDiv.style.display = 'none';
+            errorDiv.style.display = 'block';
+            errorDiv.innerText = `❌ Falha: ${error.message}`;
             console.error(error);
         } finally {
-            document.getElementById('btnGerar').disabled = false;
+            btn.disabled = false;
         }
     }
 </script>
